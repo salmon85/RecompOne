@@ -372,7 +372,11 @@ public static class LibCd
         else
         {
             c.Restore(snap);
-            if (_readyOnlyRead) PumpReady(1);
+            // Keep the sector pipeline running for readers that use the ready
+            // callback and read the FIFO with CdGetSector. They often register
+            // and unregister their data callback per sector, so gating this on
+            // _readyOnlyRead alone stops the stream after the first sector.
+            PumpReady(1);
             return;
         }
 
