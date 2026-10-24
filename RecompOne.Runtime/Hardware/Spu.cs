@@ -287,6 +287,8 @@ public sealed class Spu
     private uint _endx;
     private ushort _spucnt;
     private ushort _transferAddr;
+    private ushort _irqAddr;
+    private bool _irqPending;
     private ushort _transferCtrl = 4;
     private ushort _cdVolL, _cdVolR;
     private ushort _extVolL, _extVolR;
@@ -369,15 +371,16 @@ public sealed class Spu
             0x19C => (ushort)(_endx & 0xFFFF),
             0x19E => (ushort)(_endx >> 16),
             0x1A2 => _reverbStartAddr,
-            >= 0x1C0 and <= 0x1FE => _rev[(off - 0x1C0) >> 1],
+            0x1A4 => _irqAddr,
             0x1A6 => _transferAddr,
             0x1AA => _spucnt,
             0x1AC => _transferCtrl,
-            0x1AE => (ushort)(_spucnt & 0x3F),
+            0x1AE => (ushort)((_spucnt & 0x3F) | (_irqPending ? 0x40 : 0)),
             0x1B0 => _cdVolL,
             0x1B2 => _cdVolR,
             0x1B4 => _extVolL,
             0x1B6 => _extVolR,
+            >= 0x1C0 and <= 0x1FE => _rev[(off - 0x1C0) >> 1],
             _ => 0
         };
     }
@@ -446,8 +449,12 @@ public sealed class Spu
             case 0x198: _eon = val; break;
             case 0x19A: _eonHi = val; break;
             case 0x1A2: _reverbStartAddr = val; break;
+            case 0x1A4: _irqAddr = val; break;
             case 0x1A6: _transferAddr = val; break;
-            case 0x1AA: _spucnt = val; break;
+            case 0x1AA:
+                _spucnt = val;
+                if ((val & 0x40) == 0) _irqPending = false;
+                break;
             case 0x1AC: _transferCtrl = val; break;
             case 0x1B0: _cdVolL = val; break;
             case 0x1B2: _cdVolR = val; break;
@@ -645,6 +652,7 @@ public sealed class Spu
                 }
             }
         }
+
     }
 
     private (short L, short R) Tick()
@@ -775,6 +783,7 @@ public sealed class Spu
         v.Buf[1] = v.Buf[29];
         v.Buf[2] = v.Buf[30];
 
+        var oldAddr = v.CurAddr;
         var addr = v.CurAddr & (uint)(RamSize - 1);
         var hdr = Ram[addr];
         var flags = Ram[(addr + 1) & (RamSize - 1)];
@@ -799,6 +808,22 @@ public sealed class Spu
             v.RepeatAddr = (ushort)(addr >> 3);
 
         v.CurAddr += 16;
+
+        // SPU IRQ: a voice reading ADPCM data at the IRQ address asserts IRQ9.
+        // libspu's SpuSt streaming engine uses this to refill its SPU buffers.
+        // Keep asserting while the condition holds: the first IRQ can be
+        // delivered before the game has registered its IRQ9 callback.
+        if (_irqAddr != 0 && (_spucnt & 0x40) != 0)
+        {
+            var irqByte = (uint)_irqAddr << 3;
+            var newAddr = v.CurAddr & (uint)(RamSize - 1);
+            var from = oldAddr & (uint)(RamSize - 1);
+            if (newAddr == irqByte || from == irqByte)
+            {
+                _irqPending = true;
+                Interrupts.Raise(9);
+            }
+        }
 
         if ((flags & 1) != 0)
         {
