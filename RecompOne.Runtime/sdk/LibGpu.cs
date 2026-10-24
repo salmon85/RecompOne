@@ -43,15 +43,22 @@ public static class LibGpu
             addr = next & Runtime.RamWordMask;
         }
 
-        if (!touched) return;
-        gpu.EmitCustomRemaining(forward);
-        GpuPrims.Clear();
+        if (touched)
+        {
+            gpu.EmitCustomRemaining(forward);
+            GpuPrims.Clear();
+        }
+
+        // The GPU completes submitted work synchronously in this runtime, so the DMA
+        // completion callback registered through DrawSyncCallback fires right here.
+        InvokeDrawSyncCallback(c, m);
     }
 
     public static void DrawPrim(CpuContext c, IMemory m)
     {
         if (Runtime.Gpu is not { } gpu) return;
         Submit(gpu, m, c.A0 + 4u, (int)(m.ReadU32(c.A0) >> 24));
+        InvokeDrawSyncCallback(c, m);
     }
 
     private static void Submit(Gpu gpu, IMemory m, uint address, int count)
@@ -67,9 +74,37 @@ public static class LibGpu
         gpu.WriteGp0Packet(packet, address);
     }
 
+    private static uint _drawSyncCallback;
+
+    public static void DrawSyncCallback(CpuContext c, IMemory m)
+    {
+        var previous = _drawSyncCallback;
+        _drawSyncCallback = c.A0;
+        c.V0 = previous;
+    }
+
     public static void DrawSync(CpuContext c, IMemory m)
     {
+        // The runtime GPU finishes every submitted packet synchronously, so a mode 0
+        // wait is already satisfied and the registered completion callback can run.
+        if (c.A0 == 0u) InvokeDrawSyncCallback(c, m);
         c.V0 = 0;
+    }
+
+    private static void InvokeDrawSyncCallback(CpuContext c, IMemory m)
+    {
+        var callback = _drawSyncCallback;
+        if (callback == 0u || !Dispatch.Dispatcher.CanCall(callback)) return;
+
+        var snapshot = c.Snapshot();
+        try
+        {
+            Dispatch.Dispatcher.Call(c, m, callback);
+        }
+        finally
+        {
+            c.Restore(snapshot);
+        }
     }
 
     public static void PutDrawEnv(CpuContext c, IMemory m)

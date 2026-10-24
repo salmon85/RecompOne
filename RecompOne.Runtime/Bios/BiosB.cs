@@ -316,6 +316,10 @@ public static class BiosB
         swapped = FirePad(m, 0, swapped);
         swapped2 = FirePad(m, 1, swapped2);
         m.WriteU32(_padBuf, ((uint)swapped2 << 16) | swapped);
+
+        // A digital pad's buffer is only 4 bytes; games from that era place globals directly after it.
+        // Only expose the analog stick bytes when the configured pad is actually analog.
+        if (!Hardware.Controller.Analog) return;
         m.WriteU8(_padBuf + 4, Hardware.Controller.RightX);
         m.WriteU8(_padBuf + 5, Hardware.Controller.RightY);
         m.WriteU8(_padBuf + 6, Hardware.Controller.LeftX);

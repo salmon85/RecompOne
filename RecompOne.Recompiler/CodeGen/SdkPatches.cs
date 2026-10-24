@@ -29,7 +29,7 @@ public static class SdkPatches
         }),
         ("libgpu", "RecompOne.Runtime.Sdk.LibGpu", new[]
         {
-            "DrawOTag", "DrawPrim", "DrawSync", "PutDrawEnv", "PutDispEnv",
+            "DrawOTag", "DrawPrim", "DrawSync", "DrawSyncCallback", "PutDrawEnv", "PutDispEnv",
             "LoadImage", "StoreImage", "MoveImage", "ClearImage",
             "SetVideoMode", "GetVideoMode"
         }),
