@@ -117,6 +117,7 @@ public static class LibCd
     public static void CdSync(CpuContext c, IMemory m)
     {
         var result = c.A1;
+        PumpReadComplete();
         PumpSync();
         PumpReady(1);
         c.V0 = (uint)SyncResult(m, result);
@@ -125,6 +126,7 @@ public static class LibCd
     public static void CdReady(CpuContext c, IMemory m)
     {
         var result = c.A1;
+        PumpReadComplete();
         PumpSync();
         PumpReady(1);
         if (_readActive && _cbReady == 0 && _cbData == 0) _dataIntr = DataReady;
@@ -176,10 +178,26 @@ public static class LibCd
 
         _lastIntr = Complete;
         c.V0 = 1;
-        FireRead(c, m);
+        // The read-complete callback is delivered from the interrupt handler on
+        // real hardware, i.e. after CdRead has returned and the caller has
+        // finished setting up its state. Firing it inline lets callers that arm
+        // a pump after CdRead clobber that pump (Courier Crisis re-reads the
+        // level header forever). Defer delivery to the next pump/frame.
+        _readCompletePending = true;
     }
 
     private static bool _inReadCb;
+    private static bool _readCompletePending;
+
+    internal static void PumpReadComplete()
+    {
+        if (!_readCompletePending || _inReadCb) return;
+        var c = Runtime.Cpu;
+        var m = Runtime.Mem;
+        if (c == null || m == null) return;
+        _readCompletePending = false;
+        FireRead(c, m);
+    }
 
     private static void FireRead(CpuContext c, IMemory m)
     {
@@ -291,6 +309,7 @@ public static class LibCd
 
     internal static void Tick()
     {
+        PumpReadComplete();
         _frameSectors = 0;
         TickCdda();
         if (LibDs.Active)

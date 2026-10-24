@@ -105,6 +105,7 @@ public static class Interrupts
     {
         _countdown = PollInterval;
         TickVBlank();
+        Sdk.LibCd.PumpReadComplete();
         Runtime.Timers?.Poll(RaiseTimer);
         if (_inHandler || _servicing || !_irqEnabled) return;
 
