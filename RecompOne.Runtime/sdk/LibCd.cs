@@ -1049,6 +1049,7 @@ public static class LibCd
         }
 
         LibDs.Detach();
+        LibCdStream.Reset();
     }
 
     internal static void Reset()
