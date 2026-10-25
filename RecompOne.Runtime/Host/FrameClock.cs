@@ -27,7 +27,16 @@ internal static class FrameClock
 
     public static double PresentFps { get; private set; }
 
-    public static double FrameMs => Sdk.LibGpu.Pal ? 1000.0 / 50.0 : 1000.0 / 60.0;
+    private static double? _refreshOverride;
+
+    public static void SetRefreshRate(double? hertz)
+    {
+        _refreshOverride = hertz;
+    }
+
+    public static double FrameMs => _refreshOverride is { } hz
+        ? 1000.0 / hz
+        : Sdk.LibGpu.Pal ? 1000.0 / 50.0 : 1000.0 / 60.0;
 
     public static double Now => _clock.Elapsed.TotalMilliseconds;
 

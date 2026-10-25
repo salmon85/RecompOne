@@ -36,6 +36,12 @@ public static class Runtime
     public static uint RamWordMask => (RamSize - 1) & ~3u;
     public static string CdPath => Config.Settings.System.DiscPath;
 
+    /// <summary>
+    /// Override the emulated refresh rate without changing the video mode.
+    /// Passing null restores the region default (50 Hz PAL / 60 Hz NTSC).
+    /// </summary>
+    public static void SetRefreshRate(double? hertz) => Host.FrameClock.SetRefreshRate(hertz);
+
     public static Func<string, string?>? DiscValidator;
 
     public static string? ValidateDisc(string path)
