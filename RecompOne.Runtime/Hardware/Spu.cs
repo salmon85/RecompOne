@@ -783,8 +783,22 @@ public sealed class Spu
         v.Buf[1] = v.Buf[29];
         v.Buf[2] = v.Buf[30];
 
-        var oldAddr = v.CurAddr;
         var addr = v.CurAddr & (uint)(RamSize - 1);
+
+        // SPU IRQ: assert when a voice is reading the block at the IRQ address.
+        // This must be checked once, at the start of the block. Checking both
+        // the previous and next addresses fired twice per crossing, which made
+        // the SpuSt stream refill twice as fast.
+        if (_irqAddr != 0 && (_spucnt & 0x40) != 0)
+        {
+            var irqByte = (uint)_irqAddr << 3;
+            if (addr == irqByte)
+            {
+                _irqPending = true;
+                Interrupts.Raise(9);
+            }
+        }
+
         var hdr = Ram[addr];
         var flags = Ram[(addr + 1) & (RamSize - 1)];
 
@@ -808,22 +822,6 @@ public sealed class Spu
             v.RepeatAddr = (ushort)(addr >> 3);
 
         v.CurAddr += 16;
-
-        // SPU IRQ: a voice reading ADPCM data at the IRQ address asserts IRQ9.
-        // libspu's SpuSt streaming engine uses this to refill its SPU buffers.
-        // Keep asserting while the condition holds: the first IRQ can be
-        // delivered before the game has registered its IRQ9 callback.
-        if (_irqAddr != 0 && (_spucnt & 0x40) != 0)
-        {
-            var irqByte = (uint)_irqAddr << 3;
-            var newAddr = v.CurAddr & (uint)(RamSize - 1);
-            var from = oldAddr & (uint)(RamSize - 1);
-            if (newAddr == irqByte || from == irqByte)
-            {
-                _irqPending = true;
-                Interrupts.Raise(9);
-            }
-        }
 
         if ((flags & 1) != 0)
         {
