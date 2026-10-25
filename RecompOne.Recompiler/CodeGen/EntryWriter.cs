@@ -6,7 +6,7 @@ namespace RecompOne.Recompiler.CodeGen;
 public static class EntryWriter
 {
     public static void Write(PsxExe exe, SystemCfg sysCfg, string bootExe, string className, string? mainCall,
-        List<string> overlays, string outDir)
+        List<string> overlays, string outDir, string mainOverlay = "main")
     {
         var entry = new StringBuilder();
         entry.AppendLine("using RecompOne.Runtime.Cdrom;");
@@ -30,7 +30,7 @@ public static class EntryWriter
             entry.AppendLine($"        Dispatcher.Register(\"{name}\", new {DispatchTableName(name)}());");
         entry.AppendLine("        RecompOne.Runtime.Modding.ModLoader.LoadAll();");
         entry.AppendLine($"        cd.LoadToMemory(\"{bootExe}\", 0x{exe.Destination:X8}u, 0x800, {exe.TextSize});");
-        entry.AppendLine("        Dispatcher.Load(\"main\");");
+        entry.AppendLine($"        Dispatcher.Load(\"{mainOverlay}\");");
         entry.AppendLine("        var c = new CpuContext();");
         entry.AppendLine($"        c.GP = 0x{exe.InitialGP:X8}u;");
         var initialSp = exe.InitialSP != 0 ? exe.InitialSP + exe.SpOffset : sysCfg.Stack;

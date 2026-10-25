@@ -11,6 +11,7 @@ public sealed class RecompOneConfig
     [JsonPropertyName("map")] public string? Map { get; set; }
     [JsonPropertyName("funcMap")] public string? FuncMap { get; set; }
     [JsonPropertyName("main")] public string? Main { get; set; }
+    [JsonPropertyName("mainOverlay")] public string? MainOverlay { get; set; }
     [JsonPropertyName("functions")] public FunctionEntry[] Functions { get; set; } = [];
 
     [JsonPropertyName("pointerScan")]

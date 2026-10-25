@@ -130,7 +130,7 @@ public static class OverlayWriter
             new PipelineOptions(config.Functions, config.LinearSweep, config.PointerScan, config.Stubs,
                 config.Ignored));
 
-        return new OverlayResult("main", funcs, -1, 0, 0, instrs);
+        return new OverlayResult(config.MainOverlay ?? "main", funcs, -1, 0, 0, instrs);
     }
 
     public sealed record OverlayAnalysis(
@@ -280,7 +280,8 @@ public static class OverlayWriter
 
         Console.WriteLine("[Recompiler] Emitting Entry.cs");
         var overlayNames = overlayResults.Select(o => o.Name).ToList();
-        EntryWriter.Write(mainExe, sysCfg, sysCfg.BootExe, className, mainCall, overlayNames, outDir);
+        EntryWriter.Write(mainExe, sysCfg, sysCfg.BootExe, className, mainCall, overlayNames, outDir,
+            config.MainOverlay ?? "main");
 
         Console.WriteLine("[Recompiler] finished "); //maybe add time it took
     }
